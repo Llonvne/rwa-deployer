@@ -49,9 +49,9 @@ export function UserTokens() {
       // For now, we'll use mock data from contract-data.json or hardcoded addresses
       const deployedTokens = contractData.deployedTokens || [
         // Fallback mock data if contract-data.json doesn't have deployedTokens
-        '0x1234...abcd',
-        '0x2345...bcde',
-        '0x3456...cdef'
+        '0x1234567890123456789012345678901234567890',
+        '0x2345678901234567890123456789012345678901',
+        '0x3456789012345678901234567890123456789012'
       ]
       
       const tokenInfoPromises = deployedTokens.map(async (tokenAddress) => {
