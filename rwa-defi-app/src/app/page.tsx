@@ -8,6 +8,7 @@ import { DeploymentWizard } from '@/components/DeploymentWizard'
 import { WalletConnection } from '@/components/WalletConnection'
 import { ChainSelector } from '@/components/ChainSelector'
 import { ContractList } from '@/components/ContractList'
+import { DemoNotice } from '@/components/DemoNotice'
 import { Wallet, Factory, Coins, Network } from 'lucide-react'
 
 export default function HomePage() {
@@ -26,6 +27,9 @@ export default function HomePage() {
           Tokenize real estate, commodities, art, and other assets with our secure smart contract factory.
         </p>
       </div>
+
+      {/* Demo Notice */}
+      <DemoNotice />
 
       {/* Wallet Connection Section */}
       <div className="mb-8">
