@@ -125,21 +125,33 @@ The app supports adding custom EVM-compatible networks through the UI or configu
    - Link your GitHub repository to Netlify
    - Or use the deploy button below
 
-2. **Environment Variables**
-   Set these in Netlify dashboard:
+2. **Environment Variables** (Optional)
+   Set these in Netlify dashboard for production:
    ```
    NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
    ```
+   Note: App will work with demo project ID for testing
 
-3. **Build Settings**
+3. **Build Settings** (Auto-configured via netlify.toml)
    - Build command: `npm run build`
-   - Publish directory: `.next`
+   - Publish directory: `out`
+   - Node.js version: 18.17.0
 
 4. **Deploy**
    - Automatic deployment on git push
    - Preview deployments for pull requests
+   - Static export ensures fast loading
 
 [![Deploy to Netlify](https://www.netlify.com/img/deploy/button.svg)](https://app.netlify.com/start/deploy?repository=YOUR_REPO_URL)
+
+#### Troubleshooting Netlify Deployment
+
+If you encounter build failures:
+
+1. **Check Node.js Version**: Ensure Netlify uses Node.js 18.17.0+
+2. **Environment Variables**: Set `NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID` if needed
+3. **Build Logs**: Check for TypeScript or ESLint errors
+4. **Clear Cache**: Try clearing Netlify's build cache and redeploy
 
 ### Manual Deployment
 

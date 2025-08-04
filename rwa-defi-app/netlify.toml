@@ -1,10 +1,9 @@
 [build]
-  publish = ".next"
+  publish = "out"
   command = "npm run build"
 
 [build.environment]
-  NODE_VERSION = "18"
-  NPM_FLAGS = "--version"
+  NODE_VERSION = "18.17.0"
 
 [[redirects]]
   from = "/*"
@@ -12,13 +11,13 @@
   status = 200
 
 [context.production.environment]
-  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = "your-walletconnect-project-id"
+  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = "demo-project-id"
 
 [context.deploy-preview.environment]
-  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = "your-walletconnect-project-id"
+  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = "demo-project-id"
 
 [context.branch-deploy.environment]
-  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = "your-walletconnect-project-id"
+  NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID = "demo-project-id"
 
 [[headers]]
   for = "/*"

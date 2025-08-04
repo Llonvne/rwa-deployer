@@ -4,7 +4,7 @@ import { sepolia, mainnet, polygon, bsc } from 'wagmi/chains'
 import { type Chain } from 'viem'
 
 // Define project ID for Web3Modal
-export const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'your-project-id'
+export const projectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'demo-project-id'
 
 // Metadata for the app
 const metadata = {
