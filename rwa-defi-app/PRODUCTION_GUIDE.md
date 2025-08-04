@@ -158,7 +158,7 @@ In Netlify dashboard:
 2. **Build Settings**:
    - Build command: `npm run build`
    - Publish directory: `out`
-   - Node version: `18.17.0`
+   - Node version: `18.18.0`
 
 ## ✅ Testing Checklist
 
