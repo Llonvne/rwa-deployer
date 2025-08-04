@@ -8,7 +8,7 @@ try {
   console.warn('Contract data not found. Please run "npm run compile" first.')
 }
 
-// Contract ABIs (simplified for the essential functions)
+// Contract ABIs (enhanced with new functions)
 export const RWA_TOKEN_ABI = [
   "constructor(string _name, string _symbol, uint8 _decimals, uint256 _initialSupply, address _owner, string _assetType, string _assetLocation, uint256 _assetValue)",
   "function name() view returns (string)",
@@ -23,27 +23,63 @@ export const RWA_TOKEN_ABI = [
   "function verified() view returns (bool)",
   "function paused() view returns (bool)",
   "function getAssetInfo() view returns (string, string, uint256, bool, string)",
+  "function getTokenInfo() view returns (string, string, uint8, uint256, address, bool)",
+  "function getFormattedBalance(address) view returns (uint256)",
+  "function hasSufficientBalance(address, uint256) view returns (bool)",
   "function transfer(address to, uint256 amount) returns (bool)",
   "function approve(address spender, uint256 amount) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function transferFrom(address from, address to, uint256 amount) returns (bool)",
   "function mint(address to, uint256 amount)",
   "function burn(uint256 amount)",
+  "function burnFrom(address account, uint256 amount)",
   "function pause()",
   "function unpause()",
   "function updateAssetInfo(string _assetType, uint256 _assetValue, string _legalDocumentHash)",
   "function transferOwnership(address newOwner)",
   "event Transfer(address indexed from, address indexed to, uint256 value)",
+  "event Approval(address indexed owner, address indexed spender, uint256 value)",
   "event AssetVerified(address indexed verifier)",
-  "event AssetUpdated(string newAssetType, uint256 newAssetValue)"
+  "event AssetUpdated(string newAssetType, uint256 newAssetValue)",
+  "event TokenPaused(address indexed pauser)",
+  "event TokenUnpaused(address indexed unpauser)",
+  "event TokensMinted(address indexed to, uint256 amount)",
+  "event TokensBurned(address indexed from, uint256 amount)",
+  "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)"
 ]
 
 export const RWA_FACTORY_ABI = [
   "constructor(uint256 _deploymentFee)",
   "function deploymentFee() view returns (uint256)",
   "function owner() view returns (address)",
+  "function feeCollector() view returns (address)",
+  "function paused() view returns (bool)",
   "function deployRWAToken(string _name, string _symbol, uint8 _decimals, uint256 _initialSupply, string _assetType, string _assetLocation, uint256 _assetValue, string _category) payable returns (address)",
-  "function withdraw()",
-  "event TokenDeployed(address indexed tokenAddress, address indexed deployer, string name, string symbol, string category)",
-  "event FeeUpdated(uint256 oldFee, uint256 newFee)"
+  "function verifyToken(address _tokenAddress)",
+  "function getAllTokens() view returns (address[])",
+  "function getTokensByDeployer(address _deployer) view returns (address[])",
+  "function getTotalTokens() view returns (uint256)",
+  "function getTokenInfo(address _tokenAddress) view returns (tuple(address deployer, string name, string symbol, uint256 deploymentTime, bool verified, string category, uint256 deploymentFee))",
+  "function getVerifiedTokens() view returns (address[])",
+  "function getTokensByCategory(string _category) view returns (address[])",
+  "function getTokenCountByCategory(string _category) view returns (uint256)",
+  "function getDeployerCount() view returns (uint256)",
+  "function getAllDeployers() view returns (address[])",
+  "function getFactoryStats() view returns (uint256 totalTokens, uint256 verifiedTokens, uint256 totalDeployers, uint256 totalFeesCollected)",
+  "function isTokenDeployed(address _tokenAddress) view returns (bool)",
+  "function updateDeploymentFee(uint256 _newFee)",
+  "function updateFeeCollector(address _newFeeCollector)",
+  "function pause()",
+  "function unpause()",
+  "function transferOwnership(address _newOwner)",
+  "function emergencyWithdraw()",
+  "event TokenDeployed(address indexed tokenAddress, address indexed deployer, string name, string symbol, string category, uint256 deploymentFee)",
+  "event TokenVerified(address indexed tokenAddress, address indexed verifier)",
+  "event FeeUpdated(uint256 oldFee, uint256 newFee)",
+  "event FactoryPaused(address indexed pauser)",
+  "event FactoryUnpaused(address indexed unpauser)",
+  "event FeeCollectorUpdated(address indexed oldCollector, address indexed newCollector)",
+  "event OwnershipTransferred(address indexed previousOwner, address indexed newOwner)"
 ]
 
 export const TEST_USDT_ABI = [
@@ -332,10 +368,10 @@ export class ContractDeployer {
     try {
       const contract = new Contract(contractAddress, abi, this.provider)
       
-              // Get basic contract information
-        const details: Record<string, unknown> = {
-          address: contractAddress
-        }
+      // Get basic contract information
+      const details: Record<string, unknown> = {
+        address: contractAddress
+      }
 
       // Try to get common properties
       try {

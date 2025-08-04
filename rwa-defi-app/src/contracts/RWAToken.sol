@@ -22,6 +22,7 @@ interface IERC20 {
  * - Ownership control
  * - Pausing mechanism for emergency situations
  * - Asset metadata tracking
+ * - Enhanced transfer validation and error handling
  */
 contract RWAToken is IERC20 {
     mapping(address => uint256) private _balances;
@@ -43,25 +44,52 @@ contract RWAToken is IERC20 {
     uint256 public assetValue; // Value in USD cents
     bool public verified;
     
-    modifier onlyOwner() {
-        require(msg.sender == owner, "RWAToken: caller is not the owner");
-        _;
-    }
-    
-    modifier onlyFactory() {
-        require(msg.sender == factory, "RWAToken: caller is not the factory");
-        _;
-    }
-    
-    modifier whenNotPaused() {
-        require(!paused, "RWAToken: token transfers are paused");
-        _;
-    }
-    
+    // Enhanced events for better tracking
     event AssetVerified(address indexed verifier);
     event AssetUpdated(string newAssetType, uint256 newAssetValue);
     event TokenPaused(address indexed pauser);
     event TokenUnpaused(address indexed unpauser);
+    event TokensMinted(address indexed to, uint256 amount);
+    event TokensBurned(address indexed from, uint256 amount);
+    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    
+    // Custom errors for better gas efficiency
+    error InsufficientBalance(address account, uint256 requested, uint256 available);
+    error InsufficientAllowance(address owner, address spender, uint256 requested, uint256 available);
+    error TransferToZeroAddress();
+    error TransferFromZeroAddress();
+    error ApproveToZeroAddress();
+    error ApproveFromZeroAddress();
+    error TokenPausedError();
+    error NotOwner();
+    error NotFactory();
+    error InvalidAmount();
+    error InvalidAddress();
+    
+    modifier onlyOwner() {
+        if (msg.sender != owner) revert NotOwner();
+        _;
+    }
+    
+    modifier onlyFactory() {
+        if (msg.sender != factory) revert NotFactory();
+        _;
+    }
+    
+    modifier whenNotPaused() {
+        if (paused) revert TokenPausedError();
+        _;
+    }
+    
+    modifier validAmount(uint256 amount) {
+        if (amount == 0) revert InvalidAmount();
+        _;
+    }
+    
+    modifier validAddress(address addr) {
+        if (addr == address(0)) revert InvalidAddress();
+        _;
+    }
     
     constructor(
         string memory _name,
@@ -72,7 +100,7 @@ contract RWAToken is IERC20 {
         string memory _assetType,
         string memory _assetLocation,
         uint256 _assetValue
-    ) {
+    ) validAddress(_owner) {
         name = _name;
         symbol = _symbol;
         decimals = _decimals;
@@ -95,53 +123,60 @@ contract RWAToken is IERC20 {
         return _balances[account];
     }
     
-    function transfer(address to, uint256 amount) public override whenNotPaused returns (bool) {
-        address owner = msg.sender;
-        _transfer(owner, to, amount);
+    function transfer(address to, uint256 amount) public override whenNotPaused validAmount(amount) validAddress(to) returns (bool) {
+        address from = msg.sender;
+        _transfer(from, to, amount);
         return true;
     }
     
-    function allowance(address owner, address spender) public view override returns (uint256) {
-        return _allowances[owner][spender];
+    function allowance(address ownerAddr, address spender) public view override returns (uint256) {
+        return _allowances[ownerAddr][spender];
     }
     
-    function approve(address spender, uint256 amount) public override returns (bool) {
-        address owner = msg.sender;
-        _approve(owner, spender, amount);
+    function approve(address spender, uint256 amount) public override validAddress(spender) returns (bool) {
+        address ownerAddr = msg.sender;
+        _approve(ownerAddr, spender, amount);
         return true;
     }
     
-    function transferFrom(address from, address to, uint256 amount) public override whenNotPaused returns (bool) {
+    function transferFrom(address from, address to, uint256 amount) public override whenNotPaused validAmount(amount) validAddress(to) validAddress(from) returns (bool) {
         address spender = msg.sender;
         _spendAllowance(from, spender, amount);
         _transfer(from, to, amount);
         return true;
     }
     
-    function mint(address to, uint256 amount) public onlyOwner {
-        require(to != address(0), "RWAToken: mint to the zero address");
-        
+    function mint(address to, uint256 amount) public onlyOwner validAddress(to) validAmount(amount) {
         _totalSupply += amount;
         _balances[to] += amount;
         emit Transfer(address(0), to, amount);
+        emit TokensMinted(to, amount);
     }
     
-    function burn(uint256 amount) public {
+    function burn(uint256 amount) public validAmount(amount) {
         address account = msg.sender;
-        require(_balances[account] >= amount, "RWAToken: burn amount exceeds balance");
+        uint256 accountBalance = _balances[account];
+        if (accountBalance < amount) {
+            revert InsufficientBalance(account, amount, accountBalance);
+        }
         
-        _balances[account] -= amount;
+        _balances[account] = accountBalance - amount;
         _totalSupply -= amount;
         emit Transfer(account, address(0), amount);
+        emit TokensBurned(account, amount);
     }
     
-    function burnFrom(address account, uint256 amount) public {
+    function burnFrom(address account, uint256 amount) public validAmount(amount) validAddress(account) {
         _spendAllowance(account, msg.sender, amount);
-        require(_balances[account] >= amount, "RWAToken: burn amount exceeds balance");
+        uint256 accountBalance = _balances[account];
+        if (accountBalance < amount) {
+            revert InsufficientBalance(account, amount, accountBalance);
+        }
         
-        _balances[account] -= amount;
+        _balances[account] = accountBalance - amount;
         _totalSupply -= amount;
         emit Transfer(account, address(0), amount);
+        emit TokensBurned(account, amount);
     }
     
     function pause() public onlyOwner {
@@ -170,17 +205,17 @@ contract RWAToken is IERC20 {
         emit AssetUpdated(_assetType, _assetValue);
     }
     
-    function transferOwnership(address newOwner) public onlyOwner {
-        require(newOwner != address(0), "RWAToken: new owner is the zero address");
+    function transferOwnership(address newOwner) public onlyOwner validAddress(newOwner) {
+        address oldOwner = owner;
         owner = newOwner;
+        emit OwnershipTransferred(oldOwner, newOwner);
     }
     
     function _transfer(address from, address to, uint256 amount) internal {
-        require(from != address(0), "RWAToken: transfer from the zero address");
-        require(to != address(0), "RWAToken: transfer to the zero address");
-        
         uint256 fromBalance = _balances[from];
-        require(fromBalance >= amount, "RWAToken: transfer amount exceeds balance");
+        if (fromBalance < amount) {
+            revert InsufficientBalance(from, amount, fromBalance);
+        }
         
         _balances[from] = fromBalance - amount;
         _balances[to] += amount;
@@ -188,23 +223,22 @@ contract RWAToken is IERC20 {
         emit Transfer(from, to, amount);
     }
     
-    function _approve(address owner, address spender, uint256 amount) internal {
-        require(owner != address(0), "RWAToken: approve from the zero address");
-        require(spender != address(0), "RWAToken: approve to the zero address");
-        
-        _allowances[owner][spender] = amount;
-        emit Approval(owner, spender, amount);
+    function _approve(address ownerAddr, address spender, uint256 amount) internal {
+        _allowances[ownerAddr][spender] = amount;
+        emit Approval(ownerAddr, spender, amount);
     }
     
-    function _spendAllowance(address owner, address spender, uint256 amount) internal {
-        uint256 currentAllowance = allowance(owner, spender);
+    function _spendAllowance(address ownerAddr, address spender, uint256 amount) internal {
+        uint256 currentAllowance = allowance(ownerAddr, spender);
         if (currentAllowance != type(uint256).max) {
-            require(currentAllowance >= amount, "RWAToken: insufficient allowance");
-            _approve(owner, spender, currentAllowance - amount);
+            if (currentAllowance < amount) {
+                revert InsufficientAllowance(ownerAddr, spender, amount, currentAllowance);
+            }
+            _approve(ownerAddr, spender, currentAllowance - amount);
         }
     }
     
-    // View functions for asset information
+    // Enhanced view functions for asset information
     function getAssetInfo() public view returns (
         string memory _assetType,
         string memory _assetLocation,
@@ -213,5 +247,27 @@ contract RWAToken is IERC20 {
         string memory _legalDocumentHash
     ) {
         return (assetType, assetLocation, assetValue, verified, legalDocumentHash);
+    }
+    
+    // Additional utility functions
+    function getTokenInfo() public view returns (
+        string memory _name,
+        string memory _symbol,
+        uint8 _decimals,
+        uint256 _totalSupply,
+        address _owner,
+        bool _paused
+    ) {
+        return (name, symbol, decimals, _totalSupply, owner, paused);
+    }
+    
+    // Function to get formatted balance with decimals
+    function getFormattedBalance(address account) public view returns (uint256) {
+        return _balances[account];
+    }
+    
+    // Function to check if an address has sufficient balance
+    function hasSufficientBalance(address account, uint256 amount) public view returns (bool) {
+        return _balances[account] >= amount;
     }
 }

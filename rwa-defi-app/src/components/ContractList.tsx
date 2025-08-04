@@ -4,9 +4,12 @@ import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Search, ExternalLink, RefreshCw, CheckCircle, AlertCircle, Coins, Building, Palette, Wrench } from 'lucide-react'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Search, ExternalLink, RefreshCw, CheckCircle, AlertCircle, Coins, Building, Palette, Wrench, Eye, Send } from 'lucide-react'
 import { useAccount, useChainId } from 'wagmi'
 import { getContractExplorerUrl } from '@/lib/contract-deployment'
+import { formatAddress, formatValue, formatDate } from '@/lib/utils'
+import { TokenBalance } from './TokenBalance'
 
 interface ContractData {
   address: string
@@ -37,6 +40,8 @@ export function ContractList() {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterCategory, setFilterCategory] = useState('All')
   const [filterVerified, setFilterVerified] = useState('All')
+  const [selectedToken, setSelectedToken] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
 
   // Mock data for demonstration - in production, this would fetch from the factory contract
   const mockContracts: ContractData[] = [
@@ -87,6 +92,7 @@ export function ContractList() {
 
   const loadContracts = async () => {
     setLoading(true)
+    setError(null)
     try {
       // In production, this would call the factory contract to get all deployed tokens
       // For now, we'll use mock data
@@ -96,6 +102,7 @@ export function ContractList() {
       }, 1000)
     } catch (error) {
       console.error('Error loading contracts:', error)
+      setError('Failed to load contracts. Please try again.')
       setLoading(false)
     }
   }
@@ -117,6 +124,10 @@ export function ContractList() {
   })
 
   const categories = Array.from(new Set(contracts.map(c => c.category)))
+
+  const handleViewToken = (tokenAddress: string) => {
+    setSelectedToken(selectedToken === tokenAddress ? null : tokenAddress)
+  }
 
   if (!isConnected) {
     return (
@@ -145,6 +156,14 @@ export function ContractList() {
           Refresh
         </Button>
       </div>
+
+      {/* Error Display */}
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* Filters */}
       <Card>
@@ -224,9 +243,27 @@ export function ContractList() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="space-y-6">
           {filteredContracts.map((contract) => (
-            <ContractCard key={contract.address} contract={contract} chainId={chainId} />
+            <div key={contract.address} className="space-y-4">
+              <ContractCard 
+                contract={contract} 
+                chainId={chainId}
+                onViewToken={() => handleViewToken(contract.address)}
+                isExpanded={selectedToken === contract.address}
+              />
+              
+              {/* Token Balance Section */}
+              {selectedToken === contract.address && (
+                <div className="ml-8">
+                  <TokenBalance 
+                    tokenAddress={contract.address}
+                    tokenName={contract.name}
+                    tokenSymbol={contract.symbol}
+                  />
+                </div>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -236,31 +273,17 @@ export function ContractList() {
 
 function ContractCard({ 
   contract, 
-  chainId 
+  chainId,
+  onViewToken,
+  isExpanded
 }: { 
   contract: ContractData
   chainId: number 
+  onViewToken: () => void
+  isExpanded: boolean
 }) {
   const categoryConfig = CATEGORY_ICONS[contract.category] || CATEGORY_ICONS['Other']
   const CategoryIcon = categoryConfig.icon
-
-  const formatValue = (value: string) => {
-    const num = parseFloat(value)
-    if (num >= 1000000) {
-      return `$${(num / 1000000).toFixed(1)}M`
-    } else if (num >= 1000) {
-      return `$${(num / 1000).toFixed(1)}K`
-    }
-    return `$${num.toLocaleString()}`
-  }
-
-  const formatDate = (timestamp: number) => {
-    return new Date(timestamp).toLocaleDateString()
-  }
-
-  const formatAddress = (addr: string) => {
-    return `${addr.slice(0, 6)}...${addr.slice(-4)}`
-  }
 
   return (
     <Card className="hover:shadow-lg transition-shadow">
@@ -282,13 +305,32 @@ function ContractCard({
               </div>
             </div>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => window.open(getContractExplorerUrl(chainId, contract.address), '_blank')}
-          >
-            <ExternalLink className="w-4 h-4" />
-          </Button>
+          <div className="flex items-center space-x-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={onViewToken}
+            >
+              {isExpanded ? (
+                <>
+                  <Eye className="w-4 h-4 mr-2" />
+                  Hide
+                </>
+              ) : (
+                <>
+                  <Send className="w-4 h-4 mr-2" />
+                  View
+                </>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => window.open(getContractExplorerUrl(chainId, contract.address), '_blank')}
+            >
+              <ExternalLink className="w-4 h-4" />
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
