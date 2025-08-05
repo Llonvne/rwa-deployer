@@ -7,9 +7,11 @@ import { Input } from '@/components/ui/input'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Search, ExternalLink, RefreshCw, CheckCircle, AlertCircle, Coins, Building, Palette, Wrench, Eye, Send } from 'lucide-react'
 import { useAccount, useChainId } from 'wagmi'
-import { getContractExplorerUrl } from '@/lib/contract-deployment'
+import { getContractExplorerUrl, RWA_FACTORY_ABI } from '@/lib/contract-deployment'
 import { formatAddress, formatValue, formatDate } from '@/lib/utils'
 import { TokenBalance } from './TokenBalance'
+import { getFactoryAddress } from '@/config/chains'
+import { BrowserProvider, Contract } from 'ethers'
 
 interface ContractData {
   address: string
@@ -43,45 +45,7 @@ export function ContractList() {
   const [selectedToken, setSelectedToken] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  // Mock data for demonstration - in production, this would fetch from the factory contract
-  const mockContracts: ContractData[] = [
-    {
-      address: '0x1234...abcd',
-      name: 'Manhattan Real Estate Token',
-      symbol: 'MRET',
-      category: 'Real Estate',
-      deployer: '0x5678...efgh',
-      deploymentTime: Date.now() - 86400000, // 1 day ago
-      verified: true,
-      assetType: 'Commercial Property',
-      assetLocation: '123 Wall St, New York, NY',
-      assetValue: '5000000'
-    },
-    {
-      address: '0x2345...bcde',
-      name: 'Gold Reserve Token',
-      symbol: 'GRT',
-      category: 'Commodities',
-      deployer: '0x6789...fghi',
-      deploymentTime: Date.now() - 172800000, // 2 days ago
-      verified: false,
-      assetType: 'Precious Metal',
-      assetLocation: 'Vault 42, Switzerland',
-      assetValue: '1000000'
-    },
-    {
-      address: '0x3456...cdef',
-      name: 'Digital Art Collection',
-      symbol: 'DAC',
-      category: 'Art & Collectibles',
-      deployer: '0x7890...ghij',
-      deploymentTime: Date.now() - 259200000, // 3 days ago
-      verified: true,
-      assetType: 'NFT Collection',
-      assetLocation: 'Digital',
-      assetValue: '750000'
-    }
-  ]
+  // Contract data will be fetched from the factory contract
 
   useEffect(() => {
     if (isConnected) {
@@ -94,15 +58,76 @@ export function ContractList() {
     setLoading(true)
     setError(null)
     try {
-      // In production, this would call the factory contract to get all deployed tokens
-      // For now, we'll use mock data
-      setTimeout(() => {
-        setContracts(mockContracts)
+      if (!window.ethereum) {
+        setError('No Ethereum provider found. Please install a wallet like MetaMask.')
         setLoading(false)
-      }, 1000)
+        return
+      }
+
+      const provider = new BrowserProvider(window.ethereum)
+      
+      // Get factory address for the current chain
+      const factoryAddress = getFactoryAddress(chainId)
+      
+      if (!factoryAddress) {
+        setError(`No factory deployed on this network (Chain ID: ${chainId})`)
+        setLoading(false)
+        return
+      }
+      
+      // Create factory contract instance
+      const factory = new Contract(factoryAddress, RWA_FACTORY_ABI, provider)
+      
+      // Get all deployed tokens from the factory
+      const tokenAddresses = await factory.getAllTokens()
+      
+      // Get detailed information for each token
+      const contractsData: ContractData[] = []
+      
+      for (const tokenAddress of tokenAddresses) {
+        try {
+          // Get token info from factory
+          const tokenInfo = await factory.getTokenInfo(tokenAddress)
+          
+          // Create token contract to get additional info
+          const tokenContract = new Contract(tokenAddress, [
+            "function assetType() view returns (string)",
+            "function assetLocation() view returns (string)",
+            "function assetValue() view returns (uint256)",
+            "function verified() view returns (bool)"
+          ], provider)
+          
+          // Get asset details
+          const [assetType, assetLocation, assetValue, verified] = await Promise.all([
+            tokenContract.assetType(),
+            tokenContract.assetLocation(),
+            tokenContract.assetValue(),
+            tokenContract.verified()
+          ])
+          
+          contractsData.push({
+            address: tokenAddress,
+            name: tokenInfo.name,
+            symbol: tokenInfo.symbol,
+            category: tokenInfo.category,
+            deployer: tokenInfo.deployer,
+            deploymentTime: Number(tokenInfo.deploymentTime),
+            verified: verified,
+            assetType,
+            assetLocation,
+            assetValue: assetValue.toString()
+          })
+        } catch (err) {
+          console.error(`Error loading token at ${tokenAddress}:`, err)
+          // Continue with next token
+        }
+      }
+      
+      setContracts(contractsData)
     } catch (error) {
       console.error('Error loading contracts:', error)
       setError('Failed to load contracts. Please try again.')
+    } finally {
       setLoading(false)
     }
   }

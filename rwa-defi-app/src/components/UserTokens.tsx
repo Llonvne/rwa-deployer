@@ -9,9 +9,9 @@ import { useAccount, useChainId } from 'wagmi'
 import { BrowserProvider, Contract } from 'ethers'
 import { Input } from '@/components/ui/input'
 import { TokenBalance } from './TokenBalance'
-import { RWA_TOKEN_ABI } from '@/lib/contract-deployment'
+import { RWA_TOKEN_ABI, RWA_FACTORY_ABI } from '@/lib/contract-deployment'
 import { formatAddress } from '@/lib/utils'
-import contractData from '@/lib/contract-data.json'
+import { getFactoryAddress } from '@/config/chains'
 
 interface TokenInfo {
   address: string
@@ -45,14 +45,20 @@ export function UserTokens() {
     try {
       const provider = new BrowserProvider(window.ethereum)
       
-      // In production, this would fetch from the factory contract to get all deployed tokens
-      // For now, we'll use mock data from contract-data.json or hardcoded addresses
-      const deployedTokens = contractData.deployedTokens || [
-        // Fallback mock data if contract-data.json doesn't have deployedTokens
-        '0x1234567890123456789012345678901234567890',
-        '0x2345678901234567890123456789012345678901',
-        '0x3456789012345678901234567890123456789012'
-      ]
+      // Get factory address for the current chain
+      const factoryAddress = getFactoryAddress(chainId)
+      
+      if (!factoryAddress) {
+        setError(`No factory deployed on this network (Chain ID: ${chainId})`)
+        setLoading(false)
+        return
+      }
+      
+      // Create factory contract instance
+      const factory = new Contract(factoryAddress, RWA_FACTORY_ABI, provider)
+      
+      // Get all deployed tokens from the factory
+      const deployedTokens = await factory.getAllTokens()
       
       const tokenInfoPromises = deployedTokens.map(async (tokenAddress) => {
         try {
