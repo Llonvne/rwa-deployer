@@ -8,12 +8,13 @@ import { DeploymentWizard } from '@/components/DeploymentWizard'
 import { WalletConnection } from '@/components/WalletConnection'
 import { ChainSelector } from '@/components/ChainSelector'
 import { ContractList } from '@/components/ContractList'
+import { UserTokens } from '@/components/UserTokens'
 import { DemoNotice } from '@/components/DemoNotice'
-import { Wallet, Factory, Coins, Network } from 'lucide-react'
+import { Wallet, Factory, Coins, Network, User } from 'lucide-react'
 
 export default function HomePage() {
   const { isConnected } = useAccount()
-  const [activeTab, setActiveTab] = useState<'deploy' | 'contracts' | 'tools'>('deploy')
+  const [activeTab, setActiveTab] = useState<'deploy' | 'contracts' | 'tools' | 'user'>('deploy')
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -69,6 +70,17 @@ export default function HomePage() {
               <span>Contracts</span>
             </button>
             <button
+              onClick={() => setActiveTab('user')}
+              className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'user'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <User className="w-4 h-4" />
+              <span>User</span>
+            </button>
+            <button
               onClick={() => setActiveTab('tools')}
               className={`flex-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
                 activeTab === 'tools'
@@ -84,6 +96,7 @@ export default function HomePage() {
           {/* Tab Content */}
           {activeTab === 'deploy' && <DeploymentWizard />}
           {activeTab === 'contracts' && <ContractList />}
+          {activeTab === 'user' && <UserTokens />}
           {activeTab === 'tools' && <ToolsSection />}
         </div>
       ) : (
